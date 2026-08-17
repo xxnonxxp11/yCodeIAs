@@ -17,9 +17,9 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.util.concurrent.atomic.AtomicBoolean
 
-private const val REPOSITORY_PATH = "/repos/yuga-hashimoto/and-code"
-private const val STAR_STATUS_PATH = "/user/starred/yuga-hashimoto/and-code"
-private const val USER_AGENT = "AndCode"
+private const val REPOSITORY_PATH = "/repos/xxnonxxp11/yCodeIAs"
+private const val STAR_STATUS_PATH = "/user/starred/xxnonxxp11/yCodeIAs"
+private const val USER_AGENT = "yCode"
 
 const val GITHUB_STAR_COUNT_CACHE_TTL_MS = 6 * 60 * 60 * 1000L
 const val GITHUB_STAR_STATUS_CACHE_TTL_MS = 15 * 60 * 1000L

@@ -35,7 +35,7 @@ yCode is a native Android GUI app that brings AI coding agents to your phone. Ch
 </div>
 
 > [!IMPORTANT]
-> AndCode is an independent open-source project. It is **not** affiliated with OpenCode, Anthropic, or Google.
+> yCode is an independent open-source project. It is **not** affiliated with OpenCode, Anthropic, or Google.
 
 ---
 
@@ -121,7 +121,7 @@ In addition to on-device agents, AndCode can connect to OpenCode running on your
 
 ### Option A: On-Device (no PC needed)
 
-1. Install the APK from [Releases](https://github.com/yuga-hashimoto/and-code/releases/latest)
+1. Install the APK from [Releases](https://github.com/xxnonxxp11/yCodeIAs/releases/latest)
 2. Open the app → tap **Workspaces** → **This Android device** → **Set up on this device**
 3. Wait for the runtime to download and install (~2 min on a good connection)
 4. Select your coding agent and start chatting
