@@ -440,11 +440,13 @@ class LocalRuntimeInstaller(
         installAndroidHelperScripts(rootfs)
         provisionBrowserMcp(rootfs)
         provisionScheduleMcp(rootfs)
+        provisionMemoryMcp(rootfs)
+        provisionRootMcp(rootfs)
         require(suite.proot.isFile) { "PRoot launcher is unavailable" }
     }
 
     /**
-     * Re-seeds the guest MCP servers (browser + schedule) and agent registrations on runtimes that
+     * Re-seeds the guest MCP servers (browser + schedule + memory + root) and agent registrations on runtimes that
      * were installed before the provisioning existed. Idempotent and safe to call on every start.
      */
     fun provisionGuestCapabilitiesForExistingInstall() {
@@ -455,6 +457,8 @@ class LocalRuntimeInstaller(
                 installAndroidHelperScripts(rootfs)
                 provisionBrowserMcp(rootfs)
                 provisionScheduleMcp(rootfs)
+                provisionMemoryMcp(rootfs)
+                provisionRootMcp(rootfs)
                 provisionClaudePermissionHook(rootfs)
             }
     }
@@ -545,6 +549,82 @@ class LocalRuntimeInstaller(
                     .put("timeout", SCHEDULE_MCP_TIMEOUT_MILLIS)
         }
 
+    /**
+     * Registers the on-device memory MCP server with every agent (OpenCode, Claude Code, Antigravity)
+     * so they all expose the mem_* tools for UE4 game and Android memory reading.
+     */
+    private fun provisionMemoryMcp(rootfs: File) {
+        mergeJsonConfig(File(rootfs, "root/.config/opencode/opencode.json")) { root ->
+            val mcp = root.optJSONObject("mcp") ?: JSONObject()
+            mcp.put(MEMORY_MCP_NAME, memoryMcpEntry("opencode"))
+            root.put("mcp", mcp)
+        }
+        mergeJsonConfig(File(rootfs, "root/.claude.json")) { root ->
+            val servers = root.optJSONObject("mcpServers") ?: JSONObject()
+            servers.put(MEMORY_MCP_NAME, memoryMcpEntry("claude"))
+            root.put("mcpServers", servers)
+        }
+        mergeJsonConfig(File(rootfs, "root/.gemini/config/mcp_config.json")) { root ->
+            val servers = root.optJSONObject("mcpServers") ?: JSONObject()
+            servers.put(MEMORY_MCP_NAME, memoryMcpEntry("antigravity"))
+            root.put("mcpServers", servers)
+        }
+    }
+
+    private fun memoryMcpEntry(agent: String): JSONObject =
+        when (agent) {
+            "claude" ->
+                JSONObject()
+                    .put("type", "stdio")
+                    .put("command", MEMORY_MCP_BIN)
+                    .put("args", JSONArray())
+            "antigravity" -> JSONObject().put("command", MEMORY_MCP_BIN)
+            else ->
+                JSONObject()
+                    .put("type", "local")
+                    .put("command", JSONArray(listOf(MEMORY_MCP_BIN)))
+                    .put("enabled", true)
+                    .put("timeout", MEMORY_MCP_TIMEOUT_MILLIS)
+        }
+
+    /**
+     * Registers the on-device root MCP server with every agent (OpenCode, Claude Code, Antigravity)
+     * so they all expose root_* tools for superuser commands and /data/local/tmp/ execution.
+     */
+    private fun provisionRootMcp(rootfs: File) {
+        mergeJsonConfig(File(rootfs, "root/.config/opencode/opencode.json")) { root ->
+            val mcp = root.optJSONObject("mcp") ?: JSONObject()
+            mcp.put(ROOT_MCP_NAME, rootMcpEntry("opencode"))
+            root.put("mcp", mcp)
+        }
+        mergeJsonConfig(File(rootfs, "root/.claude.json")) { root ->
+            val servers = root.optJSONObject("mcpServers") ?: JSONObject()
+            servers.put(ROOT_MCP_NAME, rootMcpEntry("claude"))
+            root.put("mcpServers", servers)
+        }
+        mergeJsonConfig(File(rootfs, "root/.gemini/config/mcp_config.json")) { root ->
+            val servers = root.optJSONObject("mcpServers") ?: JSONObject()
+            servers.put(ROOT_MCP_NAME, rootMcpEntry("antigravity"))
+            root.put("mcpServers", servers)
+        }
+    }
+
+    private fun rootMcpEntry(agent: String): JSONObject =
+        when (agent) {
+            "claude" ->
+                JSONObject()
+                    .put("type", "stdio")
+                    .put("command", ROOT_MCP_BIN)
+                    .put("args", JSONArray())
+            "antigravity" -> JSONObject().put("command", ROOT_MCP_BIN)
+            else ->
+                JSONObject()
+                    .put("type", "local")
+                    .put("command", JSONArray(listOf(ROOT_MCP_BIN)))
+                    .put("enabled", true)
+                    .put("timeout", ROOT_MCP_TIMEOUT_MILLIS)
+        }
+
     private fun mergeJsonConfig(
         file: File,
         mutate: (JSONObject) -> Unit,
@@ -573,13 +653,18 @@ class LocalRuntimeInstaller(
             "android-app.sh" to "android-app",
             "andcode-browser-mcp.py" to "andcode-browser-mcp.py",
             "andcode-schedule-mcp.py" to "andcode-schedule-mcp.py",
+            "andcode-memory-mcp.py" to "andcode-memory-mcp.py",
+            "andcode-root-mcp.py" to "andcode-root-mcp.py",
+            "mem_server.sh" to "mem_server.sh",
         ).forEach {
                 (assetName, scriptName) ->
             val scriptFile = File(binDir, scriptName)
-            context.assets.open("scripts/$assetName").use { input ->
-                scriptFile.outputStream().use { output -> input.copyTo(output) }
+            runCatching {
+                context.assets.open("scripts/$assetName").use { input ->
+                    scriptFile.outputStream().use { output -> input.copyTo(output) }
+                }
+                scriptFile.setExecutable(true, false)
             }
-            scriptFile.setExecutable(true, false)
         }
     }
 
@@ -602,5 +687,11 @@ class LocalRuntimeInstaller(
         private const val SCHEDULE_MCP_NAME = "and-code-schedule"
         private const val SCHEDULE_MCP_BIN = "/usr/local/bin/andcode-schedule-mcp.py"
         private const val SCHEDULE_MCP_TIMEOUT_MILLIS = 120000
+        private const val MEMORY_MCP_NAME = "android-memory"
+        private const val MEMORY_MCP_BIN = "/usr/local/bin/andcode-memory-mcp.py"
+        private const val MEMORY_MCP_TIMEOUT_MILLIS = 60000
+        private const val ROOT_MCP_NAME = "android-root"
+        private const val ROOT_MCP_BIN = "/usr/local/bin/andcode-root-mcp.py"
+        private const val ROOT_MCP_TIMEOUT_MILLIS = 60000
     }
 }

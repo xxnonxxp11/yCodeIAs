@@ -1067,4 +1067,15 @@
     <string name="guest_browser_back">Atrás</string>
     <string name="guest_browser_forward">Avanzar</string>
     <string name="guest_browser_reload">Recargar</string>
+    <string name="root_game_tools_row">Root y Memoria de Juegos</string>
+    <string name="root_status_title">Acceso Root y Superusuario</string>
+    <string name="root_status_detected">Root detectado: %1$s</string>
+    <string name="root_status_none">No se detectó acceso Root</string>
+    <string name="mem_daemon_running">Daemon de Memoria Activo (:8088)</string>
+    <string name="mem_daemon_stopped">Daemon de Memoria Inactivo</string>
+    <string name="mem_daemon_start">Iniciar Daemon de Memoria</string>
+    <string name="mem_daemon_stop">Detener Daemon de Memoria</string>
+    <string name="root_test_button">Probar Acceso Root</string>
+    <string name="root_test_success">Acceso Root verificado: %1$s</string>
+    <string name="root_test_failed">Fallo en la prueba de acceso Root</string>
 </resources>

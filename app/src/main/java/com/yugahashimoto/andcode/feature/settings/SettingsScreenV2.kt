@@ -46,20 +46,25 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.yugahashimoto.andcode.R
+import com.yugahashimoto.andcode.runtime.local.RootRunner
 import com.yugahashimoto.andcode.ui.theme.AndCodeTheme
+import kotlinx.coroutines.launch
 
 /** Compact settings landing screen backed only by real destinations and state. */
 @Composable
@@ -111,6 +116,7 @@ fun SettingsScreenV2(
     var showUiFontDialog by remember { mutableStateOf(false) }
     var showCodeFontDialog by remember { mutableStateOf(false) }
     var showSyntaxThemeDialog by remember { mutableStateOf(false) }
+    var showRootDialog by remember { mutableStateOf(false) }
 
     Column(modifier = Modifier.fillMaxSize()) {
         CenterAlignedTopAppBar(
@@ -287,6 +293,13 @@ fun SettingsScreenV2(
                     icon = Icons.Default.Folder,
                     title = stringResource(R.string.settings_workspace_row),
                     onClick = onOpenWorkspaces,
+                )
+                SettingsDivider()
+                SettingsRow(
+                    icon = Icons.Default.BugReport,
+                    title = stringResource(R.string.root_game_tools_row),
+                    value = RootRunner.getRootType(),
+                    onClick = { showRootDialog = true },
                 )
             }
 
@@ -539,6 +552,102 @@ fun SettingsScreenV2(
             },
             confirmButton = {
                 TextButton(onClick = { showSyntaxThemeDialog = false }) {
+                    Text(stringResource(R.string.close_description))
+                }
+            },
+        )
+    }
+
+    if (showRootDialog) {
+        val context = LocalContext.current
+        val scope = rememberCoroutineScope()
+        var rootStatusText by remember { mutableStateOf(RootRunner.getRootType()) }
+        var isDaemonRunning by remember { mutableStateOf(false) }
+        var testResult by remember { mutableStateOf<String?>(null) }
+        var isOperating by remember { mutableStateOf(false) }
+
+        LaunchedEffect(Unit) {
+            isDaemonRunning = RootRunner.isMemServerRunning()
+        }
+
+        AlertDialog(
+            onDismissRequest = { showRootDialog = false },
+            title = { Text(stringResource(R.string.root_status_title)) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(
+                        text = stringResource(R.string.root_status_detected, rootStatusText),
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Text(
+                        text = if (isDaemonRunning) stringResource(R.string.mem_daemon_running) else stringResource(R.string.mem_daemon_stopped),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (isDaemonRunning) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    if (testResult != null) {
+                        Text(
+                            text = testResult.orEmpty(),
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        TextButton(
+                            onClick = {
+                                scope.launch {
+                                    isOperating = true
+                                    val res = RootRunner.runAsRoot("id")
+                                    testResult = if (res.success) {
+                                        context.getString(R.string.root_test_success, res.stdout)
+                                    } else {
+                                        context.getString(R.string.root_test_failed)
+                                    }
+                                    rootStatusText = RootRunner.getRootType()
+                                    isOperating = false
+                                }
+                            },
+                            enabled = !isOperating,
+                        ) {
+                            Text(stringResource(R.string.root_test_button))
+                        }
+
+                        if (!isDaemonRunning) {
+                            TextButton(
+                                onClick = {
+                                    scope.launch {
+                                        isOperating = true
+                                        isDaemonRunning = RootRunner.startMemServer(context)
+                                        isOperating = false
+                                    }
+                                },
+                                enabled = !isOperating,
+                            ) {
+                                Text(stringResource(R.string.mem_daemon_start))
+                            }
+                        } else {
+                            TextButton(
+                                onClick = {
+                                    scope.launch {
+                                        isOperating = true
+                                        RootRunner.stopMemServer()
+                                        isDaemonRunning = RootRunner.isMemServerRunning()
+                                        isOperating = false
+                                    }
+                                },
+                                enabled = !isOperating,
+                            ) {
+                                Text(stringResource(R.string.mem_daemon_stop))
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showRootDialog = false }) {
                     Text(stringResource(R.string.close_description))
                 }
             },

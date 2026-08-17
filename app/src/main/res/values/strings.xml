@@ -1093,4 +1093,15 @@
     <string name="guest_browser_back">Back</string>
     <string name="guest_browser_forward">Forward</string>
     <string name="guest_browser_reload">Reload</string>
+    <string name="root_game_tools_row">Root &amp; Game Memory</string>
+    <string name="root_status_title">Root &amp; Superuser Access</string>
+    <string name="root_status_detected">Root detected: %1$s</string>
+    <string name="root_status_none">No Root access detected</string>
+    <string name="mem_daemon_running">Memory Daemon Active (:8088)</string>
+    <string name="mem_daemon_stopped">Memory Daemon Inactive</string>
+    <string name="mem_daemon_start">Start Memory Daemon</string>
+    <string name="mem_daemon_stop">Stop Memory Daemon</string>
+    <string name="root_test_button">Test Root Access</string>
+    <string name="root_test_success">Root access verified: %1$s</string>
+    <string name="root_test_failed">Root access test failed</string>
 </resources>
