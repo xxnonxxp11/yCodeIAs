@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">AndCode</string>
+    <string name="app_name">yCode</string>
     <string name="unofficial_client">非官方开源客户端</string>
 
     <string name="nav_home">首页</string>

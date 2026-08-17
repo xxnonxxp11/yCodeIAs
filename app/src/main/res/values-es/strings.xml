@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">AndCode</string>
+    <string name="app_name">yCode</string>
     <string name="unofficial_client">Cliente de código abierto no oficial</string>
 
     <string name="nav_home">Inicio</string>

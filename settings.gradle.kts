@@ -13,6 +13,6 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "AndCode"
+rootProject.name = "yCode"
 include(":app")
 include(":benchmark")
