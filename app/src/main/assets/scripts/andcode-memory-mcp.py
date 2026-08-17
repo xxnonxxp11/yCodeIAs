@@ -349,11 +349,40 @@ TOOLS = [
                 "path": {"type": "string", "description": "Ruta a inspeccionar (por defecto /data/local/tmp)"}
             }
         }
+    },
+    {
+        "name": "mem_get_manual",
+        "description": "Obtiene la guía maestra, protocolo de ejecución y manual detallado de Unreal Engine 4 y lectura de memoria.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {}
+        }
     }
 ]
 
+MANUAL_TEXT = """# Manual y Protocolo Maestro de Memoria Android (Unreal Engine 4)
+
+Este protocolo guía a los modelos de IA para interactuar de forma precisa con el daemon nativo:
+
+## 🎮 Flujo de Ejecución en Partida:
+1. mem_status: Verifica si el daemon está conectado a 127.0.0.1:8088. Si no lo está, llama a mem_start_daemon.
+2. mem_list_processes: Detecta el juego activo (ej. com.proximabeta.mf.liteuamo o com.proximabeta.mf.uamo).
+3. mem_attach: Vincula el daemon al paquete del juego o PID.
+4. mem_ue4_roots: Resuelve lib_base, FNamePool, GUObjectArray y GWorld.
+5. mem_get_world_actors: Extrae todos los jugadores y entidades en tiempo real con posiciones 3D (X, Y, Z) y HP.
+
+## 🛠️ Herramientas de Análisis:
+- mem_read_hex / mem_read_types: Lectura cruda y decodificación de tipos primitivos (Int32, Int64, Float, Double, ASCII).
+- mem_read_pointer_chain: Recorre punteros multinivel (ej. base + offsets [0x30, 0x180]).
+- mem_pattern_scan: Búsqueda AOB con comodines ?? en módulos como libUE4.so.
+- mem_dump_fixed_elf: Vuelca y reconstruye la librería descifrada directamente al almacenamiento del teléfono.
+- mem_write_hex: Aplica parches de memoria (requiere root).
+"""
+
 def handle_tool_call(name: str, args: dict) -> dict:
-    if name == "mem_status":
+    if name == "mem_get_manual":
+        return {"status": "success", "manual": MANUAL_TEXT}
+    elif name == "mem_status":
         return bridge.send_command("status")
     elif name == "mem_attach":
         target = args.get("target", "")
