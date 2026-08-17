@@ -62,6 +62,7 @@ class AntigravityStreamJsonParser(
     private fun parseStep(step: JsonObject): Parsed =
         when (step.string("step_type")) {
             "agent_response" -> parseAgentResponse(step)
+            "reasoning", "thought", "thinking" -> parseReasoning(step)
             "tool" -> parseTool(step)
             // user_input, checkpoint and the CLI's internal "unknown" step carry no displayable part.
             else -> Parsed(conversationId = conversationId)
@@ -75,6 +76,16 @@ class AntigravityStreamJsonParser(
         text.append(delta)
         return Parsed(
             events = listOf(OpenCodeEvent.MessagePartDelta(sessionId, id, "$id-text", "text", delta)),
+            conversationId = conversationId,
+        )
+    }
+
+    private fun parseReasoning(step: JsonObject): Parsed {
+        val delta = step.string("text_delta") ?: step.string("delta") ?: step.string("thought_delta").orEmpty()
+        if (delta.isEmpty()) return Parsed(conversationId = conversationId)
+        val id = stableMessageId()
+        return Parsed(
+            events = listOf(OpenCodeEvent.MessagePartDelta(sessionId, id, "$id-reasoning", "text", delta)),
             conversationId = conversationId,
         )
     }
@@ -139,13 +150,41 @@ class AntigravityStreamJsonParser(
         val finalText = result.string("response")?.takeIf { it.isNotEmpty() } ?: text.toString()
         val textPart = OpenCodePart(id = "$id-text", sessionId = sessionId, messageId = id, type = "text", text = finalText)
         val now = System.currentTimeMillis()
+        val usage = result["usage"]?.jsonObject ?: result["stats"]?.jsonObject ?: result["token_usage"]?.jsonObject
+        val tokens =
+            usage?.let { u ->
+                val input = u.long("input_tokens") ?: u.long("prompt_tokens") ?: u.long("input") ?: 0L
+                val output = u.long("output_tokens") ?: u.long("completion_tokens") ?: u.long("output") ?: 0L
+                val reasoning = u.long("thinking_tokens") ?: u.long("reasoning_tokens") ?: u.long("reasoning") ?: 0L
+                val cacheRead = u.long("cached_tokens") ?: u.long("cache_read_tokens") ?: u.long("cache_read") ?: 0L
+                val cacheWrite = u.long("cache_write_tokens") ?: u.long("cache_write") ?: 0L
+                com.yugahashimoto.andcode.core.api.OpenCodeSessionTokens(
+                    input = input,
+                    output = output,
+                    reasoning = reasoning,
+                    cache =
+                        if (cacheRead > 0L || cacheWrite > 0L) {
+                            com.yugahashimoto.andcode.core.api.OpenCodeCacheTokens(read = cacheRead, write = cacheWrite)
+                        } else {
+                            null
+                        },
+                )
+            }
         val message =
             OpenCodeMessage(
-                OpenCodeMessageInfo(id, sessionId, "assistant", OpenCodeTime(now, now, now), agent = "antigravity"),
+                OpenCodeMessageInfo(
+                    id = id,
+                    sessionId = sessionId,
+                    role = "assistant",
+                    time = OpenCodeTime(now, now, now),
+                    agent = "antigravity",
+                    tokens = tokens,
+                ),
                 listOf(textPart) + toolParts.values,
             )
+        val messageUpdated = OpenCodeEvent.MessageUpdated(message.info)
         return Parsed(
-            events = listOf(OpenCodeEvent.MessagePartUpdated(textPart), OpenCodeEvent.SessionIdle(sessionId)),
+            events = listOf(OpenCodeEvent.MessagePartUpdated(textPart), messageUpdated, OpenCodeEvent.SessionIdle(sessionId)),
             messages = listOf(message),
             conversationId = conversationId,
             finalText = finalText,
@@ -166,5 +205,7 @@ class AntigravityStreamJsonParser(
         fun JsonObject.string(key: String): String? = (this[key] as? JsonPrimitive)?.contentOrNull
 
         fun JsonObject.int(key: String): Int? = (this[key] as? JsonPrimitive)?.contentOrNull?.toIntOrNull()
+
+        fun JsonObject.long(key: String): Long? = (this[key] as? JsonPrimitive)?.contentOrNull?.toLongOrNull()
     }
 }

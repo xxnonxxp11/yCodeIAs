@@ -191,6 +191,27 @@ class AntigravityStreamJsonParserTest {
     }
 
     @Test
+    fun `parses token usage from result usage`() {
+        val parser = parser()
+        val parsed =
+            parser.parse(
+                """{"event":"result","result":{"conversation_id":"c1","status":"SUCCESS","response":"Done","duration_seconds":2.5,"usage":{"input_tokens":1500,"output_tokens":350,"thinking_tokens":120,"cached_tokens":400}}}""",
+            )
+
+        assertTrue(parsed.turnFinished)
+        val message = parsed.messages.single()
+        val tokens = message.info.tokens
+        assertEquals(1500L, tokens?.input)
+        assertEquals(350L, tokens?.output)
+        assertEquals(120L, tokens?.reasoning)
+        assertEquals(400L, tokens?.cache?.read)
+        assertEquals(1900L, tokens?.contextUsed)
+
+        val messageUpdated = parsed.events.filterIsInstance<OpenCodeEvent.MessageUpdated>().single()
+        assertEquals(1900L, messageUpdated.info.tokens?.contextUsed)
+    }
+
+    @Test
     fun `ignores a line that is not JSON`() {
         val parsed = parser().parse("not json at all")
 

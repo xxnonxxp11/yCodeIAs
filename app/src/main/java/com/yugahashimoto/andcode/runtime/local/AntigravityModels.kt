@@ -58,6 +58,15 @@ object AntigravityModels {
             }
             .toList()
 
+    fun modelLimit(slug: String): com.yugahashimoto.andcode.core.api.OpenCodeModelLimit {
+        val lower = slug.lowercase()
+        return when {
+            lower.contains("gemini") -> com.yugahashimoto.andcode.core.api.OpenCodeModelLimit(context = 1_048_576L, output = 65_536L)
+            lower.contains("claude") -> com.yugahashimoto.andcode.core.api.OpenCodeModelLimit(context = 200_000L, output = 8_192L)
+            else -> com.yugahashimoto.andcode.core.api.OpenCodeModelLimit(context = 1_000_000L, output = 8_192L)
+        }
+    }
+
     /**
      * Groups parsed entries by base model name, in the order `agy models` printed them.
      *
@@ -72,7 +81,7 @@ object AntigravityModels {
                         OpenCodeProvider(
                             PROVIDER_ID,
                             "Antigravity",
-                            mapOf(FALLBACK_MODEL to OpenCodeModel(FALLBACK_MODEL, PROVIDER_ID, "Account default")),
+                            mapOf(FALLBACK_MODEL to OpenCodeModel(FALLBACK_MODEL, PROVIDER_ID, "Account default", limit = modelLimit(FALLBACK_MODEL))),
                         ),
                     ),
                 default = mapOf(PROVIDER_ID to FALLBACK_MODEL),
@@ -87,7 +96,7 @@ object AntigravityModels {
         val models =
             entries.associate { entry ->
                 val id = entry.slug
-                id to OpenCodeModel(id = id, providerId = PROVIDER_ID, name = id)
+                id to OpenCodeModel(id = id, providerId = PROVIDER_ID, name = id, limit = modelLimit(id))
             }
         return ProviderCatalog(
             all = listOf(OpenCodeProvider(PROVIDER_ID, "Antigravity", models)),

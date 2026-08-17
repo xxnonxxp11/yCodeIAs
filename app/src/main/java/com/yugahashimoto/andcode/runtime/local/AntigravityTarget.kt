@@ -76,12 +76,15 @@ class AntigravityTarget(internal val runtime: AntigravityRuntime) : RuntimeTarge
     override suspend fun health(): OpenCodeHealth = connect().getOrElse { OpenCodeHealth(false, "") }
 
     override suspend fun listSessions(directory: String?): List<OpenCodeSession> =
-        runtime.listSessions(directory).map {
+        runtime.listSessions(directory).map { record ->
+            val sessionMessages = runtime.listMessages(record.appSessionId)
+            val tokens = sessionMessages.asReversed().firstNotNullOfOrNull { it.info.tokens }
             OpenCodeSession(
-                it.appSessionId,
-                directory = it.workspace,
-                title = it.title ?: DEFAULT_TITLE,
-                time = OpenCodeTime(it.createdAt, it.updatedAt),
+                record.appSessionId,
+                directory = record.workspace,
+                title = record.title ?: DEFAULT_TITLE,
+                time = OpenCodeTime(record.createdAt, record.updatedAt),
+                tokens = tokens,
             )
         }
 

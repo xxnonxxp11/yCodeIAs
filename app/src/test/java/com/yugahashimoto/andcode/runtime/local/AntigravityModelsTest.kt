@@ -97,4 +97,19 @@ class AntigravityModelsTest {
         assertEquals(emptyList<String>(), AntigravityModels.cliArgs(null, null))
         assertEquals(emptyList<String>(), AntigravityModels.cliArgs("default", null))
     }
+
+    @Test
+    fun `assigns correct context limits to models in catalog`() {
+        val catalog = AntigravityModels.catalog(AntigravityModels.parse(output))
+        val provider = catalog.all.single()
+        val geminiModel = provider.models["gemini-3.6-flash-high"]
+        assertEquals(1_048_576L, geminiModel?.limit?.context)
+
+        val claudeModel = provider.models["claude-opus-4-6-thinking"]
+        assertEquals(200_000L, claudeModel?.limit?.context)
+
+        val fallbackCatalog = AntigravityModels.catalog(emptyList())
+        val fallbackModel = fallbackCatalog.all.single().models["default"]
+        assertEquals(1_000_000L, fallbackModel?.limit?.context)
+    }
 }
