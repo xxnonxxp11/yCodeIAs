@@ -4,6 +4,7 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -125,7 +126,7 @@ jobs:
       # so pull requests only need it to prove the release build still compiles — which main
       # covers on every merge.
       - name: Build release APK
-        if: github.event_name == 'push'
+        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
         env:
           GITHUB_CLIENT_ID: ${{ vars.AND_CODE_GITHUB_CLIENT_ID }}
         run: ./gradlew :app:assembleRelease
@@ -138,7 +139,7 @@ jobs:
           if-no-files-found: error
 
       - name: Upload unsigned release APK
-        if: github.event_name == 'push'
+        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
         uses: actions/upload-artifact@v4
         with:
           name: and-code-release-unsigned
