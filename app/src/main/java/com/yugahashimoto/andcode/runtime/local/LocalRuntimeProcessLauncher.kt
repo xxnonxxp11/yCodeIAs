@@ -10,7 +10,8 @@ class LocalRuntimeProcessLauncher(
     private val nowMillis: () -> Long = System::currentTimeMillis,
     private val procRoot: File = File("/proc"),
     private val processSignal: (Long) -> Unit = { pid ->
-        android.os.Process.killProcess(pid.toInt())
+        runCatching { android.os.Process.sendSignal(pid.toInt(), android.os.Process.SIGNAL_KILL) }
+        runCatching { android.os.Process.killProcess(pid.toInt()) }
     },
     private val githubToken: () -> String? = { null },
     private val beforeStart: (LocalRuntimeInstaller.InstalledRuntime) -> Unit = {},
@@ -346,6 +347,9 @@ internal fun localRuntimeEnvironment(
         put("OPENCODE_CONFIG_CONTENT", AND_CODE_OPENCODE_CONFIG_CONTENT)
         put("OPENCODE_DISABLE_AUTOUPDATE", "true")
         put("USE_BUILTIN_RIPGREP", "0")
+        put("NODE_OPTIONS", "--max-old-space-size=2048 --no-warnings")
+        put("UV_THREADPOOL_SIZE", "8")
+        put("GIT_OPTIONAL_LOCKS", "0")
         githubToken?.takeIf(String::isNotBlank)?.let {
             put("OPENCODE_GITHUB_TOKEN", it)
             put("GH_TOKEN", it)
