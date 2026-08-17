@@ -1445,6 +1445,20 @@ private fun ChatComposer(
                     tokensUsed = contextTokensUsed,
                     contextLimit = contextLimit,
                 )
+            } else if (contextTokensUsed > 0L) {
+                Surface(
+                    shape = RoundedCornerShape(100.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    modifier = Modifier.padding(horizontal = 2.dp),
+                ) {
+                    Text(
+                        text = "${formatTokenCount(contextTokensUsed)} tokens",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontSize = 9.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                    )
+                }
             }
         }
     }

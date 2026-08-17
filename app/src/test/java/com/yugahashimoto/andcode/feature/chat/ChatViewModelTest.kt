@@ -1048,6 +1048,55 @@ class ChatViewModelTest {
             assertNull(viewModel.uiState.value.parentSession)
         }
 
+    @Test
+    fun `token usage updates live when message or session updated events arrive`() =
+        runTest(dispatcher) {
+            val backend = FakeBackend()
+            val viewModel = ChatViewModel(backend)
+            advanceUntilIdle()
+
+            viewModel.openSession("s1")
+            advanceUntilIdle()
+
+            assertEquals(0L, viewModel.uiState.value.contextTokensUsed)
+
+            backend.events.tryEmit(
+                OpenCodeEvent.MessageUpdated(
+                    OpenCodeMessageInfo(
+                        id = "msg-1",
+                        sessionId = "s1",
+                        role = "assistant",
+                        tokens =
+                            com.yugahashimoto.andcode.core.api.OpenCodeSessionTokens(
+                                input = 1200L,
+                                output = 300L,
+                                cache = com.yugahashimoto.andcode.core.api.OpenCodeCacheTokens(read = 500L),
+                            ),
+                    ),
+                ),
+            )
+            advanceUntilIdle()
+
+            // contextUsed = input (1200) + cache.read (500) = 1700
+            assertEquals(1700L, viewModel.uiState.value.contextTokensUsed)
+
+            backend.events.tryEmit(
+                OpenCodeEvent.SessionUpdated(
+                    OpenCodeSession(
+                        id = "s1",
+                        tokens =
+                            com.yugahashimoto.andcode.core.api.OpenCodeSessionTokens(
+                                input = 2500L,
+                                output = 600L,
+                            ),
+                    ),
+                ),
+            )
+            advanceUntilIdle()
+
+            assertEquals(2500L, viewModel.uiState.value.contextTokensUsed)
+        }
+
     private fun sessionAssistantMessage(
         sessionId: String,
         messageId: String,

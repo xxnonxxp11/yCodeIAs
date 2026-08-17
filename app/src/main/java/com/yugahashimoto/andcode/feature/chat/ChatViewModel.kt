@@ -734,20 +734,24 @@ class ChatViewModel(
         }
     }
 
+    private fun extractContextTokens(messages: List<OpenCodeMessage>): Long? =
+        messages.asReversed()
+            .firstNotNullOfOrNull { message ->
+                message.info.tokens?.contextUsed
+                    ?.takeIf { !message.info.role.equals("user", ignoreCase = true) && it > 0L }
+            }
+
     private fun refreshContextUsage(sessionId: String) {
         val currentBackend = backend ?: return
         viewModelScope.launch {
             runCatching {
                 val messages = currentBackend.listMessages(sessionId)
-                val latestMessageTokens =
-                    messages.asReversed()
-                        .firstNotNullOfOrNull { message ->
-                            message.info.tokens?.contextUsed
-                                ?.takeIf { !message.info.role.equals("user", ignoreCase = true) }
-                        }
-                latestMessageTokens ?: currentBackend.session(sessionId).tokens?.contextUsed ?: 0L
+                val latestMessageTokens = extractContextTokens(messages)
+                latestMessageTokens ?: currentBackend.session(sessionId).tokens?.contextUsed?.takeIf { it > 0L }
             }.onSuccess { used ->
-                _uiState.update { it.copy(contextTokensUsed = used) }
+                if (used != null && used > 0L) {
+                    _uiState.update { it.copy(contextTokensUsed = used) }
+                }
             }
         }
     }
@@ -796,12 +800,14 @@ class ChatViewModel(
                     val selectedModel =
                         messages.asReversed()
                             .firstNotNullOfOrNull { it.info.model }
+                    val latestTokens = extractContextTokens(messages)
                     _uiState.update {
                         it.copy(
                             isLoadingHistory = false,
                             messages = mergeReloadedMessages(messages.mapNotNull(::toUiMessage), it.messages),
                             selectedProviderId = selectedModel?.providerId ?: it.selectedProviderId,
                             selectedModelId = selectedModel?.modelId ?: it.selectedModelId,
+                            contextTokensUsed = latestTokens ?: it.contextTokensUsed,
                         )
                     }
                     refreshContextUsage(sessionId)
@@ -1031,8 +1037,16 @@ class ChatViewModel(
                                             _uiState.value.messages,
                                             pendingPreviewsByFilename,
                                         )
+                                    val latestTokens = extractContextTokens(serverMessages)
                                     if (uiMessages.isNotEmpty() && uiMessages != _uiState.value.messages) {
-                                        _uiState.update { it.copy(messages = uiMessages) }
+                                        _uiState.update {
+                                            it.copy(
+                                                messages = uiMessages,
+                                                contextTokensUsed = latestTokens ?: it.contextTokensUsed,
+                                            )
+                                        }
+                                    } else if (latestTokens != null && latestTokens > 0L && latestTokens != _uiState.value.contextTokensUsed) {
+                                        _uiState.update { it.copy(contextTokensUsed = latestTokens) }
                                     }
                                     // Completion is read off the transcript. A session object
                                     // carries no completion time — only assistant messages do — so
@@ -1214,8 +1228,16 @@ class ChatViewModel(
                                             serverMessages.mapNotNull(::toUiMessage),
                                             _uiState.value.messages,
                                         )
+                                    val latestTokens = extractContextTokens(serverMessages)
                                     if (uiMessages.isNotEmpty() && uiMessages != _uiState.value.messages) {
-                                        _uiState.update { it.copy(messages = uiMessages) }
+                                        _uiState.update {
+                                            it.copy(
+                                                messages = uiMessages,
+                                                contextTokensUsed = latestTokens ?: it.contextTokensUsed,
+                                            )
+                                        }
+                                    } else if (latestTokens != null && latestTokens > 0L && latestTokens != _uiState.value.contextTokensUsed) {
+                                        _uiState.update { it.copy(contextTokensUsed = latestTokens) }
                                     }
                                     if (turnFinished(serverMessages, messageIdsBeforeSend)) {
                                         sessionCompleted = true
@@ -1733,6 +1755,11 @@ class ChatViewModel(
             is OpenCodeEvent.MessageUpdated -> {
                 if (event.info.sessionId != activeSession) return
                 messageRoles[event.info.id] = event.info.role
+                event.info.tokens?.contextUsed?.let { used ->
+                    if (used > 0L) {
+                        _uiState.update { it.copy(contextTokensUsed = used) }
+                    }
+                }
             }
             is OpenCodeEvent.MessagePartUpdated -> {
                 val part = event.part
@@ -1837,8 +1864,22 @@ class ChatViewModel(
                     )
                 }
             }
-            is OpenCodeEvent.SessionCreated -> Unit
-            is OpenCodeEvent.SessionUpdated -> Unit
+            is OpenCodeEvent.SessionCreated -> {
+                if (event.session.id != activeSession) return
+                event.session.tokens?.contextUsed?.let { used ->
+                    if (used > 0L) {
+                        _uiState.update { it.copy(contextTokensUsed = used) }
+                    }
+                }
+            }
+            is OpenCodeEvent.SessionUpdated -> {
+                if (event.session.id != activeSession) return
+                event.session.tokens?.contextUsed?.let { used ->
+                    if (used > 0L) {
+                        _uiState.update { it.copy(contextTokensUsed = used) }
+                    }
+                }
+            }
             is OpenCodeEvent.Unknown -> Unit
         }
     }
