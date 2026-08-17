@@ -83,7 +83,10 @@ class AntigravityModelsTest {
     fun `an effort is sent through its own flag`() {
         // The picker id already carries the effort, so no separate variant is needed or trusted.
         assertEquals(listOf("--model", "gemini-3.1-pro", "--effort", "high"), AntigravityModels.cliArgs("gemini-3.1-pro-high", null))
-        assertEquals(listOf("--model", "gemini-3.7-flash", "--effort", "medium"), AntigravityModels.cliArgs("gemini-3.7-flash-medium", null))
+        assertEquals(
+            listOf("--model", "gemini-3.7-flash", "--effort", "medium"),
+            AntigravityModels.cliArgs("gemini-3.7-flash-medium", null),
+        )
         assertEquals(listOf("--model", "gpt-oss-120b", "--effort", "medium"), AntigravityModels.cliArgs("gpt-oss-120b-medium", null))
     }
 
