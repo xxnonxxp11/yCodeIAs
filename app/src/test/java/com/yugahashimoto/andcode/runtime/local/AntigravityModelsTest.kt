@@ -69,7 +69,7 @@ class AntigravityModelsTest {
         val provider = catalog.all.single()
         assertTrue(provider.models.containsKey("gemini-3.7-flash-high"))
         assertTrue(provider.models.containsKey("gemini-3.7-pro-high"))
-        assertEquals("gemini-3.7-flash-high", catalog.default[AntigravityModels.PROVIDER_ID])
+        assertEquals("gemini-3.7-flash-medium", catalog.default[AntigravityModels.PROVIDER_ID])
     }
 
     @Test

@@ -60,9 +60,9 @@ object AntigravityModels {
 
     val KNOWN_MODELS: List<Entry> =
         listOf(
-            Entry("gemini-3.7-flash", "high"),
             Entry("gemini-3.7-flash", "medium"),
             Entry("gemini-3.7-flash", "low"),
+            Entry("gemini-3.7-flash", "high"),
             Entry("gemini-3.7-pro", "high"),
             Entry("gemini-3.7-pro", "medium"),
             Entry("gemini-3.7-pro", "low"),
