@@ -337,16 +337,14 @@ class AntigravityRuntime(
 
     fun abort(sessionId: String) {
         processes[sessionId]?.let { process ->
-            // Marked before either the graceful ESC or the SIGKILL fallback below: whichever one
-            // actually ends the process, the exit code should not be read as a crash by the send()
+            // Marked before killing: the exit code should not be read as a crash by the send()
             // call still blocked reading its stdout. See AntigravityAbortTracker.
             abortTracker.markIntentional(sessionId)
             runCatching {
                 process.outputStream.write(27)
                 process.outputStream.flush()
             }
-            Thread.sleep(2000)
-            if (process.isAlive) terminate(process)
+            terminate(process)
         }
     }
 
@@ -494,7 +492,13 @@ class AntigravityRuntime(
     /** See [killAntigravityProcessTree] for why a plain `destroy()`/`destroyForcibly()` is not enough. */
     private fun terminate(process: Process) {
         killAntigravityProcessTree(process)
-        if (process.isAlive) process.waitFor(3, java.util.concurrent.TimeUnit.SECONDS)
+        if (process.isAlive) {
+            process.destroyForcibly()
+            process.waitFor(1, java.util.concurrent.TimeUnit.SECONDS)
+        }
+        runCatching { process.inputStream.close() }
+        runCatching { process.errorStream.close() }
+        runCatching { process.outputStream.close() }
     }
 
     private companion object {

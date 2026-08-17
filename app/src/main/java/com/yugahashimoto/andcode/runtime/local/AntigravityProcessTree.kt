@@ -15,7 +15,15 @@ package com.yugahashimoto.andcode.runtime.local
  * re-walking `/proc` a second way.
  */
 internal fun killAntigravityProcessTree(process: Process) {
-    val rootPid = processId(process) ?: return
-    processTreePostOrder(rootPid) { pid -> readDirectChildPids(pid) }
-        .forEach { pid -> runCatching { android.os.Process.killProcess(pid.toInt()) } }
+    val rootPid = processId(process)
+    if (rootPid != null) {
+        val pids = processTreePostOrder(rootPid) { pid -> readDirectChildPids(pid) }
+        pids.forEach { pid ->
+            runCatching { android.os.Process.sendSignal(pid.toInt(), android.os.Process.SIGNAL_KILL) }
+            runCatching { android.os.Process.killProcess(pid.toInt()) }
+        }
+    }
+    if (process.isAlive) {
+        process.destroyForcibly()
+    }
 }
