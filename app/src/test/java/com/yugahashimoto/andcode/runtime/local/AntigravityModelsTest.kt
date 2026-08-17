@@ -41,15 +41,15 @@ class AntigravityModelsTest {
 
     /** The picker lists whole CLI ids, effort included, so an effort can never be left unselected. */
     @Test
-    fun `catalog lists one model per printed line`() {
+    fun `catalog lists one model per printed line and merges known models`() {
         val catalog = AntigravityModels.catalog(AntigravityModels.parse(output))
         val provider = catalog.all.single()
-        assertEquals(11, provider.models.size)
+        assertTrue(provider.models.containsKey("gemini-3.7-flash-high"))
+        assertTrue(provider.models.containsKey("gemini-3.7-pro-high"))
         assertTrue(provider.models.containsKey("gemini-3.6-flash-high"))
         assertTrue(provider.models.containsKey("gemini-3.1-pro-low"))
         assertTrue(provider.models.containsKey("claude-sonnet-4-6"))
         assertTrue(provider.models.values.all { it.variants.isEmpty() })
-        assertEquals("gemini-3.6-flash-high", catalog.default[AntigravityModels.PROVIDER_ID])
     }
 
     /** `--model claude-opus-4-6-thinking` is accepted whole; `thinking` is not a `--effort` value. */
@@ -64,11 +64,12 @@ class AntigravityModelsTest {
     }
 
     @Test
-    fun `falls back to a single placeholder model when nothing was parsed`() {
+    fun `falls back to curated known models including gemini 3_7 when nothing was parsed`() {
         val catalog = AntigravityModels.catalog(emptyList())
         val provider = catalog.all.single()
-        assertEquals(1, provider.models.size)
-        assertTrue(provider.models.containsKey("default"))
+        assertTrue(provider.models.containsKey("gemini-3.7-flash-high"))
+        assertTrue(provider.models.containsKey("gemini-3.7-pro-high"))
+        assertEquals("gemini-3.7-flash-high", catalog.default[AntigravityModels.PROVIDER_ID])
     }
 
     @Test
@@ -82,6 +83,7 @@ class AntigravityModelsTest {
     fun `an effort is sent through its own flag`() {
         // The picker id already carries the effort, so no separate variant is needed or trusted.
         assertEquals(listOf("--model", "gemini-3.1-pro", "--effort", "high"), AntigravityModels.cliArgs("gemini-3.1-pro-high", null))
+        assertEquals(listOf("--model", "gemini-3.7-flash", "--effort", "medium"), AntigravityModels.cliArgs("gemini-3.7-flash-medium", null))
         assertEquals(listOf("--model", "gpt-oss-120b", "--effort", "medium"), AntigravityModels.cliArgs("gpt-oss-120b-medium", null))
     }
 
@@ -102,14 +104,14 @@ class AntigravityModelsTest {
     fun `assigns correct context limits to models in catalog`() {
         val catalog = AntigravityModels.catalog(AntigravityModels.parse(output))
         val provider = catalog.all.single()
-        val geminiModel = provider.models["gemini-3.6-flash-high"]
+        val geminiModel = provider.models["gemini-3.7-flash-high"]
         assertEquals(1_048_576L, geminiModel?.limit?.context)
 
         val claudeModel = provider.models["claude-opus-4-6-thinking"]
         assertEquals(200_000L, claudeModel?.limit?.context)
 
         val fallbackCatalog = AntigravityModels.catalog(emptyList())
-        val fallbackModel = fallbackCatalog.all.single().models["default"]
-        assertEquals(1_000_000L, fallbackModel?.limit?.context)
+        val fallbackGemini = fallbackCatalog.all.single().models["gemini-3.7-flash-high"]
+        assertEquals(1_048_576L, fallbackGemini?.limit?.context)
     }
 }

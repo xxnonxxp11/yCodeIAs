@@ -58,6 +58,27 @@ object AntigravityModels {
             }
             .toList()
 
+    val KNOWN_MODELS: List<Entry> =
+        listOf(
+            Entry("gemini-3.7-flash", "high"),
+            Entry("gemini-3.7-flash", "medium"),
+            Entry("gemini-3.7-flash", "low"),
+            Entry("gemini-3.7-pro", "high"),
+            Entry("gemini-3.7-pro", "medium"),
+            Entry("gemini-3.7-pro", "low"),
+            Entry("gemini-3.1-pro", "high"),
+            Entry("gemini-3.1-pro", "low"),
+            Entry("gemini-3.6-flash", "high"),
+            Entry("gemini-3.6-flash", "medium"),
+            Entry("gemini-3.6-flash", "low"),
+            Entry("gemini-3.5-flash", "high"),
+            Entry("gemini-3.5-flash", "medium"),
+            Entry("gemini-3.5-flash", "low"),
+            Entry("claude-opus-4-6-thinking", null),
+            Entry("claude-sonnet-4-6", null),
+            Entry("claude-3-7-sonnet", null),
+        )
+
     fun modelLimit(slug: String): com.yugahashimoto.andcode.core.api.OpenCodeModelLimit {
         val lower = slug.lowercase()
         return when {
@@ -70,37 +91,25 @@ object AntigravityModels {
     /**
      * Groups parsed entries by base model name, in the order `agy models` printed them.
      *
-     * An empty [entries] list (not signed in yet, or `agy models` failed) falls back to the single
-     * placeholder model the picker showed before this existed, rather than an empty picker.
+     * An empty [entries] list (not signed in yet, or `agy models` failed) falls back to the
+     * curated [KNOWN_MODELS] including Gemini 3.7. When [entries] is non-empty, [KNOWN_MODELS]
+     * are merged in so that Gemini 3.7 remains readily selectable.
      */
     fun catalog(entries: List<Entry>): ProviderCatalog {
-        if (entries.isEmpty()) {
-            return ProviderCatalog(
-                all =
-                    listOf(
-                        OpenCodeProvider(
-                            PROVIDER_ID,
-                            "Antigravity",
-                            mapOf(FALLBACK_MODEL to OpenCodeModel(FALLBACK_MODEL, PROVIDER_ID, "Account default", limit = modelLimit(FALLBACK_MODEL))),
-                        ),
-                    ),
-                default = mapOf(PROVIDER_ID to FALLBACK_MODEL),
-                connected = listOf(PROVIDER_ID),
-            )
-        }
-        // One picker entry per line the CLI printed, effort included, rather than a base model plus
-        // a separate effort chip. A model that has efforts *requires* one - the CLI rejects
-        // `--model gemini-3.1-pro` with `--effort ""` - so an effort left unselected in another
-        // control is not a valid state to be able to reach. Listing whole ids also keeps the picker
-        // a one-to-one view of `agy models`.
+        val combined =
+            if (entries.isEmpty()) {
+                KNOWN_MODELS
+            } else {
+                (entries + KNOWN_MODELS).distinctBy { it.slug }
+            }
         val models =
-            entries.associate { entry ->
+            combined.associate { entry ->
                 val id = entry.slug
                 id to OpenCodeModel(id = id, providerId = PROVIDER_ID, name = id, limit = modelLimit(id))
             }
         return ProviderCatalog(
             all = listOf(OpenCodeProvider(PROVIDER_ID, "Antigravity", models)),
-            default = mapOf(PROVIDER_ID to entries.first().slug),
+            default = mapOf(PROVIDER_ID to combined.first().slug),
             connected = listOf(PROVIDER_ID),
         )
     }
@@ -122,11 +131,11 @@ object AntigravityModels {
     ): List<String> {
         val selected = model?.takeIf(String::isNotBlank) ?: return emptyList()
         if (selected == FALLBACK_MODEL) return emptyList()
-        // The picker's id is a whole CLI slug, so the effort is split back out of it here rather
-        // than taken from [variant] - which is the chat's separate effort control and can legally be
-        // unset. Reading it from the id means the pair sent to the CLI is always complete.
-        val entry = parse(selected).single()
-        val effort = entry.variant ?: variant?.trim()?.lowercase()?.takeIf { it in EFFORT_SUFFIXES }
+        val entry = parse(selected).singleOrNull() ?: Entry(selected, null)
+        val effort =
+            entry.variant
+                ?: variant?.trim()?.lowercase()?.takeIf { it in EFFORT_SUFFIXES }
+                ?: if (entry.base.contains("gemini") || entry.base.contains("gpt-oss")) "medium" else null
         return listOf("--model", entry.base) + (effort?.let { listOf("--effort", it) } ?: emptyList())
     }
 }
