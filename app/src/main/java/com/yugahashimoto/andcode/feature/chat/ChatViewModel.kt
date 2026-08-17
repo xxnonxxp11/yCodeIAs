@@ -170,7 +170,7 @@ data class PendingQuestionUi(
 
 private const val MAX_TOOL_OUTPUT_CHARS = 4000
 private const val RESPONSE_POLL_INTERVAL_MS = 3000L
-private const val RESPONSE_POLL_TIMEOUT_MS = 120_000L
+private const val RESPONSE_POLL_TIMEOUT_MS = 600_000L
 internal const val TRANSIENT_RECOVERY_DELAY_MS = 5000L
 internal const val TRANSIENT_RECOVERY_RETRY_DELAY_MS = 3000L
 private const val TRANSIENT_RECOVERY_MAX_BACKOFF_MS = 30_000L
@@ -1066,11 +1066,8 @@ class ChatViewModel(
                     runCatching { currentBackend.listMessages(targetSessionId) }
                         .onSuccess { serverMessages ->
                             if (!isStillActive()) return@onSuccess
-                            val hasResponse =
-                                serverMessages.any { message ->
-                                    message.info.role == "assistant" && message.info.id !in messageIdsBeforeSend
-                                }
-                            if (!sessionCompleted && !hasResponse) return@onSuccess
+                            val hasFinishedResponse = turnFinished(serverMessages, messageIdsBeforeSend)
+                            if (!sessionCompleted && !hasFinishedResponse) return@onSuccess
                             streamedParts.clear()
                             // Re-attach the in-memory previews the same way the polling loop does:
                             // the final reload otherwise drops them, and a runtime whose attachment
@@ -1251,11 +1248,8 @@ class ChatViewModel(
                     runCatching { currentBackend.listMessages(targetSessionId) }
                         .onSuccess { serverMessages ->
                             if (!isStillActive()) return@onSuccess
-                            val hasResponse =
-                                serverMessages.any { message ->
-                                    message.info.role == "assistant" && message.info.id !in messageIdsBeforeSend
-                                }
-                            if (!sessionCompleted && !hasResponse) return@onSuccess
+                            val hasFinishedResponse = turnFinished(serverMessages, messageIdsBeforeSend)
+                            if (!sessionCompleted && !hasFinishedResponse) return@onSuccess
                             streamedParts.clear()
                             _uiState.update {
                                 it.copy(

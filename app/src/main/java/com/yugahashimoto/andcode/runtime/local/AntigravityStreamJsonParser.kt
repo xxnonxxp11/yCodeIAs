@@ -170,6 +170,17 @@ class AntigravityStreamJsonParser(
                         },
                 )
             }
+        val finalizedToolParts =
+            toolParts.values.map { part ->
+                val currentStatus = (part.state?.get("status") as? JsonPrimitive)?.contentOrNull
+                if (currentStatus == "running") {
+                    val updatedState = part.state?.toMutableMap() ?: mutableMapOf()
+                    updatedState["status"] = JsonPrimitive("completed")
+                    part.copy(state = updatedState)
+                } else {
+                    part
+                }
+            }
         val message =
             OpenCodeMessage(
                 OpenCodeMessageInfo(
@@ -180,7 +191,7 @@ class AntigravityStreamJsonParser(
                     agent = "antigravity",
                     tokens = tokens,
                 ),
-                listOf(textPart) + toolParts.values,
+                listOf(textPart) + finalizedToolParts,
             )
         val messageUpdated = OpenCodeEvent.MessageUpdated(message.info)
         return Parsed(
