@@ -20,8 +20,8 @@ class VerifiedRuntimeDownloader(
         expectedSha256: String,
         expectedSizeBytes: Long? = null,
         headers: Map<String, String> = emptyMap(),
+        onProgressDetailed: ((Float?, Long, Long?) -> Unit)? = null,
         onProgress: (Float?) -> Unit = {},
-        onProgressDetailed: (Float?, Long, Long?) -> Unit = { _, _, _ -> },
     ) = operationMutex.withLock {
         withContext(Dispatchers.IO) {
             downloadLocked(
@@ -30,8 +30,8 @@ class VerifiedRuntimeDownloader(
                 expectedSha256 = expectedSha256,
                 expectedSizeBytes = expectedSizeBytes,
                 headers = headers,
-                onProgress = onProgress,
                 onProgressDetailed = onProgressDetailed,
+                onProgress = onProgress,
             )
         }
     }
@@ -42,8 +42,8 @@ class VerifiedRuntimeDownloader(
         expectedSha256: String,
         expectedSizeBytes: Long?,
         headers: Map<String, String>,
+        onProgressDetailed: ((Float?, Long, Long?) -> Unit)?,
         onProgress: (Float?) -> Unit,
-        onProgressDetailed: (Float?, Long, Long?) -> Unit = { _, _, _ -> },
     ) {
         val parsedUrl = url.toHttpUrl()
         require(parsedUrl.isHttps || parsedUrl.host in LOOPBACK_HOSTS) {
@@ -84,12 +84,12 @@ class VerifiedRuntimeDownloader(
                                 lastReport = now
                                 val fraction = totalBytes?.let { downloaded.toFloat() / it }
                                 onProgress(fraction)
-                                onProgressDetailed(fraction, downloaded, totalBytes)
+                                onProgressDetailed?.invoke(fraction, downloaded, totalBytes)
                             }
                         }
                         val finalFraction = totalBytes?.let { downloaded.toFloat() / it } ?: 1f
                         onProgress(finalFraction)
-                        onProgressDetailed(finalFraction, downloaded, totalBytes)
+                        onProgressDetailed?.invoke(finalFraction, downloaded, totalBytes)
                     }
                 }
             }
