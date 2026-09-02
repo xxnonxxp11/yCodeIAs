@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 # Superseded pushes to a pull request cancel their in-flight run; pushes to main always
 # finish so the branch keeps a complete history of results.
@@ -121,6 +121,26 @@ jobs:
           name: and-code-debug
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
+
+      - name: Publish GitHub Release
+        if: github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.0.1-preview
+          name: "yCode v1.0.1 Preview (Responsiveness & Runtime Fixes)"
+          body: |
+            ## yCode v1.0.1 Preview - Actualización de Reactividad y Estabilidad
+            
+            ### Mejoras Implementadas:
+            - **Corrección de Reactividad en Chat**: La app ya no silencia el primer mensaje. Muestra estado de carga ("Conectando al entorno local...") y señales de vida inmediatas.
+            - **Arranque Automático del Entorno Local**: Si el runtime local está detenido (`Stopped`), se inicia automáticamente al abrir o al enviar un mensaje.
+            - **Bucle de Reconexión Robusto**: Continúa comprobando el servidor hasta que está 100% listo (`healthy == true`) y vacía la cola offline automáticamente.
+            - **Indicadores Visuales en Tiempo Real**: Banner visual en la parte superior informando del estado de conexión y de mensajes en cola.
+            - **Mensaje Explicativo Si Falta Proveedor**: Si no hay una API Key configurada (o modelo vacío), guía al usuario hacia Ajustes > Proveedores.
+          files: app/build/outputs/apk/debug/app-debug.apk
+          prerelease: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Test unit and instrumentation
         env:
