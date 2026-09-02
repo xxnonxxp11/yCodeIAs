@@ -1093,17 +1093,17 @@
     <string name="guest_browser_back">Back</string>
     <string name="guest_browser_forward">Forward</string>
     <string name="guest_browser_reload">Reload</string>
-    <string name="root_game_tools_row">Root &amp; Game Memory</string>
-    <string name="mem_mcp_toggle_title">Memory &amp; Root Tools (Game Analysis)</string>
-    <string name="mem_mcp_toggle_desc">Disabled by default to save battery and RAM. Enable only when analyzing memory.</string>
-    <string name="root_status_title">Root &amp; Superuser Access</string>
-    <string name="root_status_detected">Root detected: %1$s</string>
-    <string name="root_status_none">No Root access detected</string>
-    <string name="mem_daemon_running">Memory Daemon Active (:8088)</string>
-    <string name="mem_daemon_stopped">Memory Daemon Inactive</string>
-    <string name="mem_daemon_start">Start Memory Daemon</string>
-    <string name="mem_daemon_stop">Stop Memory Daemon</string>
-    <string name="root_test_button">Test Root Access</string>
-    <string name="root_test_success">Root access verified: %1$s</string>
-    <string name="root_test_failed">Root access test failed</string>
+    <string name="root_game_tools_row" translatable="false">Root &amp; Game Memory</string>
+    <string name="mem_mcp_toggle_title" translatable="false">Memory &amp; Root Tools (Game Analysis)</string>
+    <string name="mem_mcp_toggle_desc" translatable="false">Disabled by default to save battery and RAM. Enable only when analyzing memory.</string>
+    <string name="root_status_title" translatable="false">Root &amp; Superuser Access</string>
+    <string name="root_status_detected" translatable="false">Root detected: %1$s</string>
+    <string name="root_status_none" translatable="false">No Root access detected</string>
+    <string name="mem_daemon_running" translatable="false">Memory Daemon Active (:8088)</string>
+    <string name="mem_daemon_stopped" translatable="false">Memory Daemon Inactive</string>
+    <string name="mem_daemon_start" translatable="false">Start Memory Daemon</string>
+    <string name="mem_daemon_stop" translatable="false">Stop Memory Daemon</string>
+    <string name="root_test_button" translatable="false">Test Root Access</string>
+    <string name="root_test_success" translatable="false">Root access verified: %1$s</string>
+    <string name="root_test_failed" translatable="false">Root access test failed</string>
 </resources>
