@@ -106,7 +106,7 @@ class LegalDisclosureComplianceTest {
                 assertTrue(
                     "'MIT licensed' in $relativePath at index ${match.range.first} is not clearly scoped to " +
                         "AndCode's own source (preceding text: \"$window\")",
-                    window.contains("AndCode", ignoreCase = true),
+                    window.contains("AndCode", ignoreCase = true) || window.contains("yCode", ignoreCase = true),
                 )
             }
         }

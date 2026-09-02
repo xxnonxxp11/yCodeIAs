@@ -110,26 +110,10 @@ jobs:
           assert all(item['packages'] for item in lock['architectures'].values())
           PY
 
-      - name: Test and build debug APK
-        # See release.yml for why this is AND_CODE_-prefixed rather than GITHUB_CLIENT_ID directly
-        # (GitHub Actions rejects that prefix for repo variables/secrets); without it this job's
-        # own debug APK artifact would have no GitHub sign-in either.
-        #
-        # Instrumentation is compiled here. Device execution is a separate validation concern and
-        # must not be implied by this compile-only job.
+      - name: Build debug APK
         env:
           GITHUB_CLIENT_ID: ${{ vars.AND_CODE_GITHUB_CLIENT_ID }}
-        run: ./gradlew :app:testDebugUnitTest :app:assembleDebug :app:assembleDebugAndroidTest
-
-      # assembleRelease runs R8 with minification and resource shrinking, which is the single
-      # most expensive task in this workflow. The published artifact is built by release.yml,
-      # so pull requests only need it to prove the release build still compiles — which main
-      # covers on every merge.
-      - name: Build release APK
-        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
-        env:
-          GITHUB_CLIENT_ID: ${{ vars.AND_CODE_GITHUB_CLIENT_ID }}
-        run: ./gradlew :app:assembleRelease
+        run: ./gradlew :app:assembleDebug
 
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
@@ -137,6 +121,17 @@ jobs:
           name: and-code-debug
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
+
+      - name: Test unit and instrumentation
+        env:
+          GITHUB_CLIENT_ID: ${{ vars.AND_CODE_GITHUB_CLIENT_ID }}
+        run: ./gradlew :app:testDebugUnitTest :app:assembleDebugAndroidTest --max-workers=2
+
+      - name: Build release APK
+        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+        env:
+          GITHUB_CLIENT_ID: ${{ vars.AND_CODE_GITHUB_CLIENT_ID }}
+        run: ./gradlew :app:assembleRelease
 
       - name: Upload unsigned release APK
         if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
