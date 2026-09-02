@@ -7,10 +7,10 @@
             "libandroid-shmem",
             "libtalloc"
           ],
-          "filename": "pool/main/p/proot/proot_5.1.107.90_aarch64.deb",
+          "filename": "pool/main/p/proot/proot_5.1.107.92_aarch64.deb",
           "name": "proot",
-          "sha256": "6d0d1758d3df22f845f3363ea7dad0088664b6607d13bbeac7d9e55aeab36261",
-          "version": "5.1.107.90"
+          "sha256": "1f1c983509701f6826f568482c70673ee453a9ba38c9f5fa445a472d6b7524e9",
+          "version": "5.1.107.92"
         },
         {
           "depends": [],
@@ -36,10 +36,10 @@
             "libandroid-shmem",
             "libtalloc"
           ],
-          "filename": "pool/main/p/proot/proot_5.1.107.90_x86_64.deb",
+          "filename": "pool/main/p/proot/proot_5.1.107.92_x86_64.deb",
           "name": "proot",
-          "sha256": "09d3a4f5586f3fde55b48029d9944e06ce894ee9613c6ca54feb513ca1a3ff35",
-          "version": "5.1.107.90"
+          "sha256": "70236632826c30ec0245082b633bbc7ef1e9fa5531bd51bd4f20231bfcdc999b",
+          "version": "5.1.107.92"
         },
         {
           "depends": [],
