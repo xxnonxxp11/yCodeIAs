@@ -2,6 +2,7 @@ package com.yugahashimoto.andcode.runtime.local
 
 import android.content.Context
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
@@ -60,22 +61,14 @@ object RootRunner {
         withContext(Dispatchers.IO) {
             try {
                 val proc = Runtime.getRuntime().exec(arrayOf("su", "-c", command))
-                val stdoutFuture =
-                    kotlinx.coroutines.async {
-                        proc.inputStream.bufferedReader().use { it.readText() }
-                    }
-                val stderrFuture =
-                    kotlinx.coroutines.async {
-                        proc.errorStream.bufferedReader().use { it.readText() }
-                    }
+                val stdout = async { proc.inputStream.bufferedReader().use { it.readText() } }
+                val stderr = async { proc.errorStream.bufferedReader().use { it.readText() } }
                 val exitCode = proc.waitFor()
-                val stdout = stdoutFuture.await()
-                val stderr = stderrFuture.await()
                 RootResult(
                     success = exitCode == 0,
                     exitCode = exitCode,
-                    stdout = stdout.trim(),
-                    stderr = stderr.trim(),
+                    stdout = stdout.await().trim(),
+                    stderr = stderr.await().trim(),
                 )
             } catch (t: Throwable) {
                 RootResult(

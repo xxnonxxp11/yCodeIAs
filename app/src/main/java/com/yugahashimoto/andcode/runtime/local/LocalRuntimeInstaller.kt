@@ -150,7 +150,7 @@ class LocalRuntimeInstaller(
                 carryOverHomeDirectory(File(active, "rootfs"), rootfs)
                 ensureAndCodeAgentContext(rootfs, context)
                 onShared(0.91f, context.getString(R.string.install_step_installing_dev_tools))
-                installDevelopmentTools(rootfs, commandSuite)
+                installDevelopmentTools(rootfs, commandSuite, onShared)
                 if (LocalAgent.CLAUDE_CODE in requestedAgents) {
                     onClaude(0.93f, context.getString(R.string.install_step_installing_claude_code))
                     ClaudeCodeInstaller.installInto(rootfs, commandSuite, runtimeDirectory)
@@ -345,6 +345,16 @@ class LocalRuntimeInstaller(
                     label,
                 )
             },
+            onProgressDetailed = { fraction, downloaded, total ->
+                val progressFraction =
+                    fraction?.let {
+                        startProgress + (endProgress - startProgress) * it.coerceIn(0f, 1f)
+                    }
+                val downloadedMb = String.format(java.util.Locale.US, "%.1f", downloaded / (1024f * 1024f))
+                val totalMb = total?.let { String.format(java.util.Locale.US, "%.1f MB", it / (1024f * 1024f)) }
+                val detailText = if (totalMb != null) "$label ($downloadedMb / $totalMb)" else "$label ($downloadedMb MB)"
+                onProgress(progressFraction, detailText)
+            },
         )
         onProgress(endProgress, label)
     }
@@ -352,6 +362,7 @@ class LocalRuntimeInstaller(
     private fun installDevelopmentTools(
         rootfs: File,
         suite: EmbeddedCommandSuite.Paths,
+        onProgress: (Float?, String) -> Unit = { _, _ -> },
     ) {
         val prootTmp = File(runtimeDirectory, "proot-tmp").apply { mkdirs() }
         val command =
@@ -377,7 +388,7 @@ class LocalRuntimeInstaller(
                 // `gcompat` and `util-linux` are this branch's additions and must survive main's
                 // wider toolchain list: the official agy binary is glibc-linked, and its sign-in TUI
                 // needs util-linux's `script` to be handed a real PTY.
-                "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin /sbin/apk add --no-cache bash git curl wget jq tree file less nano vim openssh-client ripgrep ca-certificates libstdc++ github-cli android-tools openjdk17 gradle python3 py3-pillow py3-pip nodejs npm make cmake gcc g++ musl-dev pkgconf patch zip unzip sqlite go gcompat util-linux && /usr/sbin/update-ca-certificates",
+                "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin /sbin/apk add --no-cache --progress bash git curl wget jq tree file less nano vim openssh-client ripgrep ca-certificates libstdc++ github-cli android-tools openjdk17 gradle python3 py3-pillow py3-pip nodejs npm make cmake gcc g++ musl-dev pkgconf patch zip unzip sqlite go gcompat util-linux && /usr/sbin/update-ca-certificates",
             )
         val installLog =
             File(runtimeDirectory, "logs/tool-install.log").apply {
@@ -387,12 +398,38 @@ class LocalRuntimeInstaller(
         val process =
             ProcessBuilder(command)
                 .redirectErrorStream(true)
-                .redirectOutput(ProcessBuilder.Redirect.to(installLog))
                 .apply {
                     environment().putAll(suite.environment())
                     environment()["PROOT_TMP_DIR"] = prootTmp.absolutePath
                 }
                 .start()
+
+        val logWriter = installLog.bufferedWriter()
+        val pkgPattern = Regex("""\((\d+)/(\d+)\)\s+Installing\s+([^\s]+)""")
+        val baseLabel = context.getString(R.string.install_step_installing_dev_tools)
+
+        try {
+            process.inputStream.bufferedReader().use { reader ->
+                var line: String?
+                while (reader.readLine().also { line = it } != null) {
+                    val currentLine = line ?: continue
+                    logWriter.write(currentLine)
+                    logWriter.newLine()
+                    val match = pkgPattern.find(currentLine)
+                    if (match != null) {
+                        val current = match.groupValues[1].toIntOrNull() ?: 1
+                        val total = match.groupValues[2].toIntOrNull() ?: 38
+                        val pkgName = match.groupValues[3].substringBefore("(")
+                        val fraction = 0.91f + (current.toFloat() / total) * 0.02f
+                        onProgress(fraction, "$baseLabel - $pkgName ($current/$total)")
+                    }
+                }
+            }
+        } finally {
+            logWriter.flush()
+            logWriter.close()
+        }
+
         val completed = process.waitFor(15, java.util.concurrent.TimeUnit.MINUTES)
         if (!completed) {
             process.destroyForcibly()

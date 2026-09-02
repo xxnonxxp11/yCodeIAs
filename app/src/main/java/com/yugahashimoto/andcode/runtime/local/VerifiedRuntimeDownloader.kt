@@ -21,6 +21,7 @@ class VerifiedRuntimeDownloader(
         expectedSizeBytes: Long? = null,
         headers: Map<String, String> = emptyMap(),
         onProgress: (Float?) -> Unit = {},
+        onProgressDetailed: (Float?, Long, Long?) -> Unit = { _, _, _ -> },
     ) = operationMutex.withLock {
         withContext(Dispatchers.IO) {
             downloadLocked(
@@ -30,6 +31,7 @@ class VerifiedRuntimeDownloader(
                 expectedSizeBytes = expectedSizeBytes,
                 headers = headers,
                 onProgress = onProgress,
+                onProgressDetailed = onProgressDetailed,
             )
         }
     }
@@ -41,6 +43,7 @@ class VerifiedRuntimeDownloader(
         expectedSizeBytes: Long?,
         headers: Map<String, String>,
         onProgress: (Float?) -> Unit,
+        onProgressDetailed: (Float?, Long, Long?) -> Unit = { _, _, _ -> },
     ) {
         val parsedUrl = url.toHttpUrl()
         require(parsedUrl.isHttps || parsedUrl.host in LOOPBACK_HOSTS) {
@@ -66,16 +69,27 @@ class VerifiedRuntimeDownloader(
                     "Runtime download failed with HTTP ${response.code}"
                 }
                 val body = requireNotNull(response.body) { "Runtime download response had no body" }
+                val totalBytes = expectedSizeBytes ?: body.contentLength().takeIf { it > 0 }
                 partial.outputStream().buffered().use { output ->
                     body.byteStream().use { input ->
                         val buffer = ByteArray(64 * 1024)
+                        var lastReport = 0L
                         while (true) {
                             val count = input.read(buffer)
                             if (count < 0) break
                             output.write(buffer, 0, count)
                             downloaded += count
-                            onProgress(expectedSizeBytes?.let { downloaded.toFloat() / it })
+                            val now = System.currentTimeMillis()
+                            if (now - lastReport >= 100) {
+                                lastReport = now
+                                val fraction = totalBytes?.let { downloaded.toFloat() / it }
+                                onProgress(fraction)
+                                onProgressDetailed(fraction, downloaded, totalBytes)
+                            }
                         }
+                        val finalFraction = totalBytes?.let { downloaded.toFloat() / it } ?: 1f
+                        onProgress(finalFraction)
+                        onProgressDetailed(finalFraction, downloaded, totalBytes)
                     }
                 }
             }

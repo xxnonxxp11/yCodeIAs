@@ -598,11 +598,39 @@ private fun RuntimeDownloadStep(
 /** A step of the one shared install, shown under whichever agent it belongs to. */
 @Composable
 private fun SharedInstallProgress(status: LocalRuntimeStatus.Installing) {
-    Text(status.step, fontWeight = FontWeight.Medium)
-    if (status.progress != null) {
-        LinearProgressIndicator(progress = { status.progress.coerceIn(0f, 1f) }, modifier = Modifier.fillMaxWidth())
-    } else {
-        LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = status.step,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.weight(1f, fill = false),
+            )
+            if (status.progress != null) {
+                Text(
+                    text = "${(status.progress * 100).toInt()}%",
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+            }
+        }
+        if (status.progress != null) {
+            LinearProgressIndicator(progress = { status.progress.coerceIn(0f, 1f) }, modifier = Modifier.fillMaxWidth())
+        } else {
+            LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+        }
+        if (!status.detail.isNullOrBlank()) {
+            Text(
+                text = status.detail,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
     }
 }
 
@@ -715,19 +743,42 @@ private fun OpenCodeRuntimeProgress(runtimeStatus: LocalRuntimeStatus) {
             )
         }
         is LocalRuntimeStatus.Installing -> {
-            Text(runtimeStatus.step, fontWeight = FontWeight.Medium)
-            if (runtimeStatus.progress != null) {
-                LinearProgressIndicator(
-                    progress = { runtimeStatus.progress.coerceIn(0f, 1f) },
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Row(
                     modifier = Modifier.fillMaxWidth(),
-                )
-                Text(
-                    text = "${(runtimeStatus.progress * 100).toInt()}%",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            } else {
-                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        runtimeStatus.step,
+                        fontWeight = FontWeight.SemiBold,
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.weight(1f, fill = false),
+                    )
+                    if (runtimeStatus.progress != null) {
+                        Text(
+                            text = "${(runtimeStatus.progress * 100).toInt()}%",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                    }
+                }
+                if (runtimeStatus.progress != null) {
+                    LinearProgressIndicator(
+                        progress = { runtimeStatus.progress.coerceIn(0f, 1f) },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                } else {
+                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                }
+                if (!runtimeStatus.detail.isNullOrBlank()) {
+                    Text(
+                        text = runtimeStatus.detail,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
         }
         is LocalRuntimeStatus.Starting -> {

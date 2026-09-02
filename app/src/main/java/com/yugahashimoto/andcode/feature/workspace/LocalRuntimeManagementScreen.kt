@@ -50,6 +50,7 @@ import com.yugahashimoto.andcode.R
 import com.yugahashimoto.andcode.runtime.LocalRuntimeStatus
 import com.yugahashimoto.andcode.runtime.local.AdbConnectionState
 import com.yugahashimoto.andcode.runtime.local.LocalRuntimeDiagnostics
+import com.yugahashimoto.andcode.ui.components.RuntimeInstallProgressCard
 import com.yugahashimoto.andcode.ui.components.RuntimeOperationResultCard
 import com.yugahashimoto.andcode.ui.components.RuntimeUpdateProgressCard
 import com.yugahashimoto.andcode.ui.components.SectionCard
@@ -107,6 +108,9 @@ fun LocalRuntimeManagementScreen(
                 LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
             }
 
+            (state.runtimeStatus as? LocalRuntimeStatus.Installing)?.let { status ->
+                RuntimeInstallProgressCard(status)
+            }
             (state.runtimeStatus as? LocalRuntimeStatus.Updating)?.let { status ->
                 RuntimeUpdateProgressCard(status)
             }

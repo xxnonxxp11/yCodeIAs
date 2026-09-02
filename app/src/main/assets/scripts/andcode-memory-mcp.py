@@ -18,6 +18,23 @@ HOST = "127.0.0.1"
 PORT = 8088
 DAEMON_PATH = "/data/local/tmp/mem_server.sh"
 DAEMON_LOG = "/data/local/tmp/mem_server.log"
+ACTIVATION_FLAG = "/data/local/tmp/mem_mcp_active"
+_manual_active = False
+
+def is_active() -> bool:
+    return _manual_active or os.path.exists(ACTIVATION_FLAG)
+
+def set_active(active: bool) -> bool:
+    global _manual_active
+    _manual_active = active
+    try:
+        if active:
+            subprocess.run(["su", "-c", f"touch {ACTIVATION_FLAG}"], capture_output=True, timeout=2)
+        else:
+            subprocess.run(["su", "-c", f"rm -f {ACTIVATION_FLAG}"], capture_output=True, timeout=2)
+    except Exception:
+        pass
+    return is_active()
 
 def log(msg: str):
     sys.stderr.write(f"[MemoryMCP] {msg}\n")
@@ -119,7 +136,7 @@ bridge = MemoryBridge()
 TOOLS = [
     {
         "name": "mem_status",
-        "description": "Obtiene el estado de conexión del daemon de memoria nativo en Android y el proceso/juego actualmente vinculado.",
+        "description": "Obtiene si las herramientas de memoria Root están activadas en los Ajustes de la app y el estado del daemon nativo.",
         "inputSchema": {
             "type": "object",
             "properties": {}
@@ -357,6 +374,49 @@ TOOLS = [
             "type": "object",
             "properties": {}
         }
+    },
+    {
+        "name": "mem_hook_capture",
+        "description": "Coloca un breakpoint/trampoline ARM64 en una función (ej. VM::TransformEncrypt) para capturar los registros X0-X7 (claves, punteros a buffers) en la siguiente ejecución.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "func_addr": {"type": "string", "description": "Dirección hexadecimal de la función (ej: 0x7d1a3bc480)"},
+                "capture_buf": {"type": "string", "description": "Dirección hexadecimal de buffer escribible de 96 bytes"},
+                "label": {"type": "string", "description": "Nombre identificador del hook"}
+            },
+            "required": ["func_addr", "capture_buf"]
+        }
+    },
+    {
+        "name": "mem_hook_restore",
+        "description": "Restaura los bytes originales de una función intervenida y remueve el hook.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "func_addr": {"type": "string", "description": "Dirección de la función"}
+            },
+            "required": ["func_addr"]
+        }
+    },
+    {
+        "name": "mem_hook_poll",
+        "description": "Verifica si la función intervenida fue ejecutada y recupera los registros X0-X7 capturados.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "func_addr": {"type": "string", "description": "Dirección de la función"}
+            },
+            "required": ["func_addr"]
+        }
+    },
+    {
+        "name": "mem_hook_list",
+        "description": "Lista todos los hooks y trampolines ARM64 actualmente activos en memoria.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {}
+        }
     }
 ]
 
@@ -380,11 +440,33 @@ Este protocolo guía a los modelos de IA para interactuar de forma precisa con e
 """
 
 def handle_tool_call(name: str, args: dict) -> dict:
-    if name == "mem_get_manual":
+    if name == "mem_status":
+        active = is_active()
+        daemon_alive = bridge.ping() if active else False
+        res = {
+            "active": active,
+            "daemon_running": daemon_alive,
+            "mode": "ON (Activo)" if active else "OFF (Desactivado en Ajustes)",
+            "message": "Activo y listo para usar." if active else "Desactivado en los Ajustes de la aplicación para ahorrar recursos y batería."
+        }
+        if active and daemon_alive:
+            res["backend"] = bridge.send_command("status")
+        return res
+    elif name == "mem_get_manual":
         return {"status": "success", "manual": MANUAL_TEXT}
-    elif name == "mem_status":
-        return bridge.send_command("status")
-    elif name == "mem_attach":
+    elif name == "mem_fs_list":
+        p = args.get("path", "/data/local/tmp")
+        return bridge.send_command(f"fs_list {p}")
+
+    # Bloqueo de seguridad: Requiere activación en los Ajustes de la app
+    if not is_active():
+        return {
+            "error": "MEM_MCP_DISABLED_BY_USER",
+            "active": False,
+            "message": "Las herramientas de memoria Root están DESACTIVADAS (OFF) desde los Ajustes de la aplicación para ahorrar batería y memoria. El usuario puede activarlas desde Ajustes -> Herramientas de Memoria y Root si desea utilizarlas."
+        }
+
+    if name == "mem_attach":
         target = args.get("target", "")
         return bridge.send_command(f"attach {target}")
     elif name == "mem_list_processes":
@@ -448,16 +530,29 @@ def handle_tool_call(name: str, args: dict) -> dict:
         return {"success": ok, "message": "Daemon iniciado" if ok else "Fallo al iniciar daemon (verifica permisos root)"}
     elif name == "mem_stop_daemon":
         try:
-            subprocess.run(["su", "-c", "pkill -f mem_server.sh"], capture_output=True)
+            subprocess.run(["su", "-c", "pkill -f mem_server.sh"], capture_output=True, timeout=3)
             return {"success": True, "message": "Daemon detenido"}
         except Exception as e:
-            return {"success": False, "error": str(e)}
+            return {"error": str(e)}
     elif name == "mem_get_device_logs":
-        lim = args.get("limit", 50)
-        return bridge.send_command(f"get_logs {lim}")
+        lim = args.get("limit", 100)
+        return bridge.send_command(f"logs {lim}")
     elif name == "mem_fs_list":
         p = args.get("path", "/data/local/tmp")
         return bridge.send_command(f"fs_list {p}")
+    elif name == "mem_hook_capture":
+        f_addr = args.get("func_addr", "")
+        c_buf = args.get("capture_buf", "")
+        lbl = args.get("label", "hook")
+        return bridge.send_command(f"hook_capture {f_addr} {c_buf} {lbl}")
+    elif name == "mem_hook_restore":
+        f_addr = args.get("func_addr", "")
+        return bridge.send_command(f"hook_restore {f_addr}")
+    elif name == "mem_hook_poll":
+        f_addr = args.get("func_addr", "")
+        return bridge.send_command(f"hook_poll {f_addr}")
+    elif name == "mem_hook_list":
+        return bridge.send_command("hook_list")
     else:
         return {"error": f"Herramienta desconocida: {name}"}
 

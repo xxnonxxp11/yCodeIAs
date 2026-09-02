@@ -347,7 +347,19 @@ internal fun localRuntimeEnvironment(
         put("OPENCODE_CONFIG_CONTENT", AND_CODE_OPENCODE_CONFIG_CONTENT)
         put("OPENCODE_DISABLE_AUTOUPDATE", "true")
         put("USE_BUILTIN_RIPGREP", "0")
-        put("NODE_OPTIONS", "--max-old-space-size=2048 --no-warnings")
+        val maxMemoryBytes = Runtime.getRuntime().maxMemory()
+        val maxHeapMb =
+            when {
+                maxMemoryBytes < 256 * 1024 * 1024L -> 512
+                maxMemoryBytes < 512 * 1024 * 1024L -> 1024
+                else -> 1536
+            }
+        put("NODE_OPTIONS", "--max-old-space-size=$maxHeapMb --no-warnings")
+        if (System.getProperty("andcode.proot.no_seccomp") == "true" ||
+            File(prootTmp.parentFile, "proot_no_seccomp").exists()
+        ) {
+            put("PROOT_NO_SECCOMP", "1")
+        }
         put("UV_THREADPOOL_SIZE", "8")
         put("GIT_OPTIONAL_LOCKS", "0")
         githubToken?.takeIf(String::isNotBlank)?.let {

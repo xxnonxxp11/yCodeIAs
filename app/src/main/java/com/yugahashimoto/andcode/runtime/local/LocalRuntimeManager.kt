@@ -99,7 +99,7 @@ class LocalRuntimeManager(
             runCatching {
                 val installed =
                     configuredInstaller.install(agents) { progress, step, agent ->
-                        mutableState.value = LocalRuntimeStatus.Installing(progress, step, agent)
+                        mutableState.value = parseInstallStep(progress, step, agent)
                     }
                 mutableState.value = LocalRuntimeStatus.Stopped(installed.metadata.version, installed.metadata.port)
                 startInstalled(installed)
@@ -186,7 +186,7 @@ class LocalRuntimeManager(
             runCatching {
                 val installed =
                     configuredInstaller.install { progress, step, agent ->
-                        mutableState.value = LocalRuntimeStatus.Installing(progress, step, agent)
+                        mutableState.value = parseInstallStep(progress, step, agent)
                     }
                 startInstalled(installed)
             }.onFailure { error ->
@@ -567,4 +567,24 @@ class LocalRuntimeManager(
                 true
             }.getOrDefault(false)
     }
+}
+
+private fun parseInstallStep(
+    progress: Float?,
+    step: String,
+    agent: LocalAgent?,
+): LocalRuntimeStatus.Installing {
+    val (mainStep, detailText) =
+        when {
+            " - " in step -> {
+                val parts = step.split(" - ", limit = 2)
+                parts[0] to parts[1]
+            }
+            " (" in step && step.endsWith(")") -> {
+                val idx = step.indexOf(" (")
+                step.substring(0, idx) to step.substring(idx + 1).removeSuffix(")")
+            }
+            else -> step to null
+        }
+    return LocalRuntimeStatus.Installing(progress, mainStep, agent, detailText)
 }

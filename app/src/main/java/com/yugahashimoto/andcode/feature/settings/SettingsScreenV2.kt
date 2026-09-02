@@ -64,7 +64,9 @@ import androidx.compose.ui.unit.dp
 import com.yugahashimoto.andcode.R
 import com.yugahashimoto.andcode.runtime.local.RootRunner
 import com.yugahashimoto.andcode.ui.theme.AndCodeTheme
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import java.io.File
 
 /** Compact settings landing screen backed only by real destinations and state. */
 @Composable
@@ -295,10 +297,34 @@ fun SettingsScreenV2(
                     onClick = onOpenWorkspaces,
                 )
                 SettingsDivider()
+                var memoryMcpEnabled by remember {
+                    mutableStateOf(File("/data/local/tmp/mem_mcp_active").exists())
+                }
+                val context = LocalContext.current
+                val scope = rememberCoroutineScope()
+
+                SettingsToggleRow(
+                    icon = Icons.Default.BugReport,
+                    title = stringResource(R.string.mem_mcp_toggle_title),
+                    checked = memoryMcpEnabled,
+                    onCheckedChange = { enable ->
+                        memoryMcpEnabled = enable
+                        scope.launch(Dispatchers.IO) {
+                            if (enable) {
+                                RootRunner.runAsRoot("touch /data/local/tmp/mem_mcp_active")
+                                RootRunner.startMemServer(context)
+                            } else {
+                                RootRunner.runAsRoot("rm -f /data/local/tmp/mem_mcp_active")
+                                RootRunner.stopMemServer()
+                            }
+                        }
+                    },
+                )
+                SettingsDivider()
                 SettingsRow(
                     icon = Icons.Default.BugReport,
                     title = stringResource(R.string.root_game_tools_row),
-                    value = RootRunner.getRootType(),
+                    value = if (memoryMcpEnabled) RootRunner.getRootType() else "OFF",
                     onClick = { showRootDialog = true },
                 )
             }
@@ -581,7 +607,14 @@ fun SettingsScreenV2(
                         fontWeight = FontWeight.SemiBold,
                     )
                     Text(
-                        text = if (isDaemonRunning) stringResource(R.string.mem_daemon_running) else stringResource(R.string.mem_daemon_stopped),
+                        text =
+                            if (isDaemonRunning) {
+                                stringResource(
+                                    R.string.mem_daemon_running,
+                                )
+                            } else {
+                                stringResource(R.string.mem_daemon_stopped)
+                            },
                         style = MaterialTheme.typography.bodySmall,
                         color = if (isDaemonRunning) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -601,11 +634,12 @@ fun SettingsScreenV2(
                                 scope.launch {
                                     isOperating = true
                                     val res = RootRunner.runAsRoot("id")
-                                    testResult = if (res.success) {
-                                        context.getString(R.string.root_test_success, res.stdout)
-                                    } else {
-                                        context.getString(R.string.root_test_failed)
-                                    }
+                                    testResult =
+                                        if (res.success) {
+                                            context.getString(R.string.root_test_success, res.stdout)
+                                        } else {
+                                            context.getString(R.string.root_test_failed)
+                                        }
                                     rootStatusText = RootRunner.getRootType()
                                     isOperating = false
                                 }

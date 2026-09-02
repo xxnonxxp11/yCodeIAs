@@ -49,6 +49,55 @@ fun LocalRuntimeStatus.displayName(): String =
         is LocalRuntimeStatus.UnsupportedAbi -> stringResource(R.string.runtime_status_unsupported)
     }
 
+/** Progress of an installation in flight, with real-time percentage and step details. */
+@Composable
+fun RuntimeInstallProgressCard(status: LocalRuntimeStatus.Installing) {
+    SectionCard {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Icon(
+                Icons.Default.SystemUpdate,
+                contentDescription = stringResource(R.string.runtime_status_setting_up),
+                tint = MaterialTheme.colorScheme.primary,
+            )
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = status.step,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                if (!status.detail.isNullOrBlank()) {
+                    Text(
+                        text = status.detail,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+            if (status.progress != null) {
+                Text(
+                    text = "${(status.progress.coerceIn(0f, 1f) * 100).toInt()}%",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+            }
+        }
+        Spacer(Modifier.height(10.dp))
+        if (status.progress == null) {
+            LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+        } else {
+            LinearProgressIndicator(
+                progress = { status.progress.coerceIn(0f, 1f) },
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+    }
+}
+
 /** Progress of an update in flight, with the versions it moves between. */
 @Composable
 fun RuntimeUpdateProgressCard(status: LocalRuntimeStatus.Updating) {

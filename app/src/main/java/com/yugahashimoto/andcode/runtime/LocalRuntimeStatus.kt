@@ -9,7 +9,12 @@ sealed interface LocalRuntimeStatus {
      * One install provisions every selected agent, so without this the setup guide put every
      * step under the OpenCode heading - including "Installing Claude Code".
      */
-    data class Installing(val progress: Float?, val step: String, val agent: LocalAgent? = null) : LocalRuntimeStatus
+    data class Installing(
+        val progress: Float?,
+        val step: String,
+        val agent: LocalAgent? = null,
+        val detail: String? = null,
+    ) : LocalRuntimeStatus
 
     data class Stopped(val version: String, val port: Int) : LocalRuntimeStatus
 
