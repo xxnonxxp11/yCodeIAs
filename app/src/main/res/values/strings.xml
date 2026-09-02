@@ -1106,4 +1106,6 @@
     <string name="root_test_button" translatable="false">Test Root Access</string>
     <string name="root_test_success" translatable="false">Root access verified: %1$s</string>
     <string name="root_test_failed" translatable="false">Root access test failed</string>
+    <string name="runtime_connecting_status">Connecting to local runtime…</string>
+    <string name="chat_offline_queued_status">Message queued, connecting to runtime…</string>
 </resources>

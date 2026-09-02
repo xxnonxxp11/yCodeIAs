@@ -74,7 +74,15 @@ class LocalRuntimeTarget(
 
     override suspend fun connect(): Result<OpenCodeHealth> {
         val localStatus = runtimeManager.status()
-        if (localStatus !is LocalRuntimeStatus.Ready) {
+        if (localStatus is LocalRuntimeStatus.Stopped) {
+            mutableState.value = RuntimeState.Connecting
+            val startResult = runtimeManager.ensureRunning()
+            if (startResult.isFailure) {
+                val state = mapStatus(runtimeManager.status())
+                mutableState.value = state
+                return Result.failure(startResult.exceptionOrNull() ?: IllegalStateException(state.describe()))
+            }
+        } else if (localStatus !is LocalRuntimeStatus.Ready) {
             val state = mapStatus(localStatus)
             mutableState.value = state
             return Result.failure(IllegalStateException(state.describe()))

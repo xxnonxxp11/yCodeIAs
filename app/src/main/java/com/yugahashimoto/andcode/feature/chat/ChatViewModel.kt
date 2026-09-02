@@ -540,21 +540,26 @@ class ChatViewModel(
                 }
             viewModelScope.launch {
                 var lastError: String? = null
-                repeat(HEALTH_CHECK_ATTEMPTS) {
-                    runCatching { backend.health() }
-                        .onSuccess { health ->
-                            _uiState.update {
-                                it.copy(
-                                    isConnected = health.healthy,
-                                    backendName = "${backend.displayName} · ${health.version}",
-                                    error = null,
-                                )
-                            }
-                            refreshSlashCatalog()
-                            return@launch
+                for (attempt in 1..HEALTH_CHECK_ATTEMPTS) {
+                    val result = runCatching { backend.health() }
+                    val health = result.getOrNull()
+                    if (health != null && health.healthy) {
+                        _uiState.update {
+                            it.copy(
+                                isConnected = true,
+                                backendName = "${backend.displayName} · ${health.version}",
+                                error = null,
+                            )
                         }
-                        .onFailure { error -> lastError = error.safeMessage() }
-                    delay(HEALTH_CHECK_DELAY_MS)
+                        refreshSlashCatalog()
+                        return@launch
+                    }
+                    if (result.isFailure) {
+                        lastError = result.exceptionOrNull()?.safeMessage()
+                    }
+                    if (attempt < HEALTH_CHECK_ATTEMPTS) {
+                        delay(HEALTH_CHECK_DELAY_MS)
+                    }
                 }
                 reportError(lastError)
             }
@@ -922,9 +927,39 @@ class ChatViewModel(
                     messages = it.messages + userMessage,
                     offlineQueue = it.offlineQueue + normalized,
                     isOfflineQueued = true,
+                    isRunning = true,
+                    isThinking = true,
+                    partialText = "Conectando al entorno local...",
                     attachments = emptyList(),
                     imagePreviews = emptyList(),
                 )
+            }
+            viewModelScope.launch {
+                runCatching {
+                    val health = currentBackend.health()
+                    if (health.healthy) {
+                        _uiState.update {
+                            it.copy(
+                                isConnected = true,
+                                backendName = "${currentBackend.displayName} · ${health.version}",
+                                error = null,
+                            )
+                        }
+                        drainOfflineQueue()
+                    } else if (currentBackend is RuntimeTarget) {
+                        val connectRes = currentBackend.connect()
+                        if (connectRes.isSuccess && connectRes.getOrNull()?.healthy == true) {
+                            _uiState.update {
+                                it.copy(
+                                    isConnected = true,
+                                    backendName = "${currentBackend.displayName} · ${connectRes.getOrNull()?.version}",
+                                    error = null,
+                                )
+                            }
+                            drainOfflineQueue()
+                        }
+                    }
+                }
             }
             return
         }
@@ -952,13 +987,16 @@ class ChatViewModel(
                 attachments = pendingAttachments,
                 imagePreviews = _uiState.value.imagePreviews,
             )
+        val alreadyShown = _uiState.value.messages.any { it.isUser && it.text == normalized && it.attachments.size == pendingAttachments.size }
         _uiState.update {
             it.copy(
-                messages = it.messages + userMessage,
+                messages = if (alreadyShown) it.messages else it.messages + userMessage,
                 isRunning = true,
                 isThinking = true,
                 partialText = "",
                 error = null,
+                isOfflineQueued = false,
+                offlineQueue = emptyList(),
             )
         }
         // A turn that replaces or queues behind a running one leaves isRunning true, so the stall
@@ -1969,7 +2007,26 @@ class ChatViewModel(
                     url = part.url ?: "",
                 )
             }
-        if (parts.isEmpty() && attachments.isEmpty()) return null
+        if (parts.isEmpty() && attachments.isEmpty()) {
+            if (message.info.role == "assistant") {
+                val fallbackText =
+                    if (message.info.model?.providerId == "opencode" && message.info.model?.modelId == "big-pickle") {
+                        "No hay un proveedor de IA configurado. Ve a Ajustes > Proveedores para conectar tu API Key (Gemini, Claude, OpenAI, Ollama, DeepSeek, etc.)."
+                    } else {
+                        "El modelo no devolvió ninguna respuesta. Revisa tu conexión a internet o la configuración del proveedor en Ajustes."
+                    }
+                return ChatMessage(
+                    id = message.info.id,
+                    isUser = false,
+                    parts = listOf(ChatPart.Text(id = "${message.info.id}-empty-fallback", text = fallbackText)),
+                    attachments = emptyList(),
+                    timestamp = message.info.time.created,
+                    completedAt = message.info.time.completed,
+                    isStreaming = false,
+                )
+            }
+            return null
+        }
         return ChatMessage(
             id = message.info.id,
             isUser = message.info.role == "user",

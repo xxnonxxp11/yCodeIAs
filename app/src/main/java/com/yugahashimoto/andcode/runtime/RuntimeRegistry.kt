@@ -148,6 +148,8 @@ class RuntimeRegistry(
     // A stored id that resolves to nothing (connection deleted elsewhere, or an endpoint that no
     // longer builds) yields no selection rather than a substitute: the local runtime may not even
     // be installed. The stored id is left untouched so the selection returns if the target does.
+    // However, when no selection was ever made (null), default to the primary available target.
     private fun resolveSelected(targets: List<RuntimeTarget>): RuntimeTarget? =
         store.selectedRuntimeId?.let { selectedId -> targets.firstOrNull { it.id == selectedId } }
+            ?: if (store.selectedRuntimeId == null) targets.firstOrNull() else null
 }

@@ -379,6 +379,39 @@ fun ChatHomeScreen(
                     ),
             )
 
+            AnimatedVisibility(visible = !state.isConnected) {
+                Surface(
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.9f),
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 4.dp),
+                    shape = RoundedCornerShape(8.dp),
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(14.dp),
+                            strokeWidth = 2.dp,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                        Text(
+                            text =
+                                if (state.isOfflineQueued) {
+                                    stringResource(R.string.chat_offline_queued_status)
+                                } else {
+                                    stringResource(R.string.runtime_connecting_status)
+                                },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
+
             state.parentSession?.let { parent ->
                 SubagentSessionBanner(
                     parentTitle = parent.title,
